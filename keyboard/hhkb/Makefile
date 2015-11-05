@@ -56,7 +56,7 @@ SRC +=	keymap_common.c \
 ifdef KEYMAP
     SRC := keymap_$(KEYMAP).c $(SRC)
 else
-    SRC := keymap_hasu.c $(SRC)
+    SRC := keymap_janner.c $(SRC)
 endif
 
 CONFIG_H = config.h
@@ -111,7 +111,7 @@ F_USB = $(F_CPU)
 #   Atmel DFU loader 4096	(TMK Alt Controller)
 #   LUFA bootloader  4096
 #   USBaspLoader     2048
-OPT_DEFS += -DBOOTLOADER_SIZE=4096
+OPT_DEFS += -DBOOTLOADER_SIZE=512
 
 
 # Build Options

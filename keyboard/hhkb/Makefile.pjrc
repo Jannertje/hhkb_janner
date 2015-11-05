@@ -2,6 +2,7 @@
 # Makefile for PJRC Teensy
 #
 
+KEYMAP = hasu
 
 # Target file name (without extension).
 TARGET = hhkb_pjrc
