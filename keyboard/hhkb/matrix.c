@@ -43,7 +43,6 @@ static matrix_row_t _matrix0[MATRIX_ROWS];
 static matrix_row_t _matrix1[MATRIX_ROWS];
 
 
-#if 0
 // Matrix I/O ports
 //
 // row:     HC4051[A,B,C]  selects scan row0-7
@@ -158,7 +157,6 @@ static matrix_row_t _matrix1[MATRIX_ROWS];
 #endif
 
 
-#endif
 inline
 uint8_t matrix_rows(void)
 {
