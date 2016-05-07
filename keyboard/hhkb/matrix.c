@@ -20,21 +20,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <stdint.h>
 #include <stdbool.h>
-#include <avr/io.h>
-#include <avr/interrupt.h>
 #include <util/delay.h>
 #include "print.h"
 #include "debug.h"
 #include "util.h"
 #include "timer.h"
 #include "matrix.h"
+#include "hhkb_avr.h"
+#include <avr/wdt.h>
+#include "suspend.h"
+#include "lufa.h"
 
 
-// Timer resolution check
-#if (1000000/TIMER_RAW_FREQ > 20)
-#   error "Timer resolution(>20us) is not enough for HHKB matrix scan tweak on V-USB."
-#endif
-
+// matrix power saving
+#define MATRIX_POWER_SAVE       10000
+static uint32_t matrix_last_modified = 0;
 
 // matrix state buffer(1:on, 0:off)
 static matrix_row_t *matrix;
@@ -43,6 +43,7 @@ static matrix_row_t _matrix0[MATRIX_ROWS];
 static matrix_row_t _matrix1[MATRIX_ROWS];
 
 
+#if 0
 // Matrix I/O ports
 //
 // row:     HC4051[A,B,C]  selects scan row0-7
@@ -157,6 +158,7 @@ static matrix_row_t _matrix1[MATRIX_ROWS];
 #endif
 
 
+#endif
 inline
 uint8_t matrix_rows(void)
 {
@@ -193,17 +195,18 @@ uint8_t matrix_scan(void)
     matrix_prev = matrix;
     matrix = tmp;
 
-    KEY_POWER_ON();
+    // power on
+    if (!KEY_POWER_STATE()) KEY_POWER_ON();
     for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
         for (uint8_t col = 0; col < MATRIX_COLS; col++) {
             KEY_SELECT(row, col);
-            _delay_us(40);
+            _delay_us(5);
 
             // Not sure this is needed. This just emulates HHKB controller's behaviour.
             if (matrix_prev[row] & (1<<col)) {
                 KEY_PREV_ON();
             }
-            _delay_us(7);
+            _delay_us(10);
 
             // NOTE: KEY_STATE is valid only in 20us after KEY_ENABLE.
             // If V-USB interrupts in this section we could lose 40us or so
@@ -239,14 +242,30 @@ uint8_t matrix_scan(void)
                 matrix[row] = matrix_prev[row];
             }
 
+            _delay_us(5);
             KEY_PREV_OFF();
             KEY_UNABLE();
+
             // NOTE: KEY_STATE keep its state in 20us after KEY_ENABLE.
             // This takes 25us or more to make sure KEY_STATE returns to idle state.
-            _delay_us(150);
+#ifdef HHKB_JP
+            // Looks like JP needs faster scan due to its twice larger matrix
+            // or it can drop keys in fast key typing
+            _delay_us(30);
+#else
+            _delay_us(75);
+#endif
         }
+        if (matrix[row] ^ matrix_prev[row]) matrix_last_modified = timer_read32();
     }
-    KEY_POWER_OFF();
+    // power off
+    if (KEY_POWER_STATE() &&
+            (USB_DeviceState == DEVICE_STATE_Suspended ||
+             USB_DeviceState == DEVICE_STATE_Unattached ) &&
+            timer_elapsed32(matrix_last_modified) > MATRIX_POWER_SAVE) {
+        KEY_POWER_OFF();
+        suspend_power_down();
+    }
     return 1;
 }
 
@@ -283,4 +302,11 @@ void matrix_print(void)
     for (uint8_t row = 0; row < matrix_rows(); row++) {
         xprintf("%02X: %08b\n", row, bitrev(matrix_get_row(row)));
     }
+}
+
+void matrix_power_up(void) {
+    KEY_POWER_ON();
+}
+void matrix_power_down(void) {
+    KEY_POWER_OFF();
 }
